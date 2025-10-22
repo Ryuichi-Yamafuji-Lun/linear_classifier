@@ -108,7 +108,25 @@ def sigmoid(z):
     
     return 1 / (1 + np.exp(-z))
 
-
+def softmax(z):
+    if z.ndim == 1:
+        # 1D case (SGD)
+        z_stable = z - np.max(z)
+        exps = np.exp(z_stable)
+        return exps / np.sum(exps)
+    
+    elif z.ndim == 2:
+        # 2D case (Batch GD)
+        max_z = np.max(z, axis=1, keepdims=True) 
+       
+        z_stable = z - max_z 
+        
+        exps = np.exp(z_stable)
+        
+        sum_exps = np.sum(exps, axis=1, keepdims=True) 
+        
+        return exps / sum_exps 
+    
 def binary_predict(X, w, b):
     """
     Inputs:
@@ -188,7 +206,22 @@ def multiclass_train(X, y, C,
             # "step_size" to minimize logistic loss. We already#
             # pick the index of the random sample for you (n)  #
             ####################################################
-            ...
+            # get data point
+            x_n, y_n = X[n], y[n]
+            # set y_hot
+            y_hot = np.zeros(C)
+            y_hot[y_n] = 1
+            # calculate the z
+            z = w @ x_n + b
+            # activation
+            a = softmax(z)
+            # calculate gradient
+            dz = a - y_hot
+            dw = np.outer(dz, x_n)
+            db = dz
+            # update
+            w = w - step_size * dw
+            b = b - step_size * db
             
     elif gd_type == "gd":
         ####################################################
@@ -196,7 +229,23 @@ def multiclass_train(X, y, C,
         # gradient descent with step size "step_size"      #
         # to minimize logistic loss.                       #
         ####################################################
-        ...
+        # set y_hot
+        y_hot = np.zeros((N,C))
+        y_hot[np.arange(N), y] = 1
+        # iterate
+        for _ in range(max_iterations):
+            # calculate z
+            z = X@w.T + b
+            # find softmax
+            a = softmax(z)
+            # calculate avg gradient
+            dz = (a - y_hot)/N
+            # calculate gradients
+            dw = dz.T @ X
+            db = np.sum(dz, axis=0)
+            # update
+            w = w - step_size * dw
+            b = b - step_size * db
         
     else:
         raise "Undefined algorithm."
@@ -226,6 +275,10 @@ def multiclass_predict(X, w, b):
     # TODO 7 : predict DETERMINISTICALLY (i.e. do not randomize)#
     #############################################################
     preds = np.zeros((N,))
+    
+    z = X @ w.T + b
+
+    preds = np.argmax(z, axis=1)
     
     assert preds.shape == (N,)
     return preds
